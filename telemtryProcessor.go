@@ -110,7 +110,7 @@ func processorLoop(queue chan createQueue, wg *sync.WaitGroup, config createRule
 
 	for {
 		poppedQueue := <-queue // remove element from channel
-		rule := config.Expression//what value do i need to multiply by
+		rule := config.Expression //what value do i need to multiply by
 
         poppedQueue.V := int(float32(poppedQueue.V) * rule)
 
