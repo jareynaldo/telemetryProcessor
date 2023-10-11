@@ -11,7 +11,6 @@ type createRules struct {
     Label  		string
 	Units 		string
     Expression  float32
-	Units		string
 }
 
 type createQueue struct {
@@ -23,15 +22,14 @@ type createQueue struct {
 
 func main (){
 
-	config := createQueue{
-		Name = "PSI to Bars"
-		Label = "sensor:IPT"
-		Units = "PSI"
-		Expression = 0.0689476
-		Units = "BARS"
+	config := createRules {
+		Name:		 "PSI to Bars",
+		Label:		 "sensor:IPT",
+		Units:		 "PSI",
+		Expression:	 0.0689476,
 	}	
 
-	queue := make(chan crateQueue)  //make queue
+	queue := make(chan createQueue)  //make queue
 	var wg sync.WaitGroup // make waitgroup so that finishes concurently
 
 
@@ -81,14 +79,14 @@ func handleSocket(queue chan createQueue, conn net.Conn, wg *sync.WaitGroup) {
 	
 }
 
-func processorLoop(queue chan currentMemeber, wg *sync.WaitGroup, createRules config){
+func processorLoop(queue chan currentMember, wg *sync.WaitGroup, createRules config){
 	defer wg.Done() 
 
 	for {
-		popedQueue := <-queue // remove element from channel
+		popedQueue := <-createQueue // remove element from channel
 		rule := config.Expression//what value do i need to multiply by
 
-        poppedQueue.V = int(float32(poppedQueue.V) * rule)
+        poppedQueue.V := int(float32(poppedQueue.V) * rule)
 
         fmt.Printf("Processed: %+v\n", poppedQueue)
 	}
