@@ -3,8 +3,8 @@ import (
 	"fmt"
 	"encoding/json"
 	"sync"
+	"net"
 )
-
 
 type createRules struct {
     Name 		string
@@ -13,14 +13,13 @@ type createRules struct {
     Expression  float32
 	Units		string
 }
+
 type createQueue struct {
 	t int 
 	l string 
 	u string 
 	v int
-
 }
-
 
 func main (){
 
@@ -33,12 +32,29 @@ func main (){
 	}	
 
 	queue := make(chan crateQueue)  //make queue
-	var wg sync.WaitGroup // make waitgroup so that finished concurently
-*-
+	var wg sync.WaitGroup // make waitgroup so that finishes concurently
 
-	wg.Add(1)
-	go handleSocket(queue, &wg) 
 
+	// create Socket 
+	listener, err := net.Listen("tcp", "127.0.0.1:9000")
+    if err != nil {
+        fmt.Println("Error listening:", err)
+        return
+    }
+    defer listener.Close()
+
+    fmt.Println("Server is listening on :9000")
+
+    for {
+        conn, err := listener.Accept()
+        if err != nil {
+            fmt.Println("Error accepting connection:", err)
+            continue
+        }
+
+        wg.Add(1)
+		go handleSocket(queue, conn, &wg) 
+    }
 
 	wg.Add(1)
 	go processorLoop(queue, &wg, config)
@@ -47,33 +63,33 @@ func main (){
 
 }
 
-// data shown like (0x09){"t:"t"}
-func handleSocket(queue chan createQueue, wg *sync.WaitGroup){
-	defer wg.Done() 
+func handleSocket(queue chan createQueue, conn net.Conn, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer conn.Close()
+	fmt.Println("Accepted connection from", conn.RemoteAddr())
 
 	for {
-		
-		length := socket.readUNIT32()
-		bytes := socket.readBytes(length)
-		value := json.Unmarshal(bytes) 
+		var data createQueue
+		decoder := json.NewDecoder(conn)
+		if err := decoder.Decode(&data); err != nil {
+			fmt.Println("Error decoding JSON:", err)
+			return
+		}
 
-		newMemeber := createQueue{t: value[time], l : value[lable], u: value[units], v: value[value]}
-		queue <- newMemeber;
+	queue <- data // send entire struct to channel
 	}
-
+	
 }
 
 func processorLoop(queue chan currentMemeber, wg *sync.WaitGroup, createRules config){
-
 	defer wg.Done() 
 
 	for {
-		popedQueue := queue.pop() // remove element from channel
-		rule := config(popedQueue.lable)//what value do i need to multiply by
-		queueValue = popedQueue[v] // second multiply value
+		popedQueue := <-queue // remove element from channel
+		rule := config.Expression//what value do i need to multiply by
 
-		popedQueue[v] := queueValue * rule 
+        poppedQueue.V = int(float32(poppedQueue.V) * rule)
 
-		print(popedQueue)
+        fmt.Printf("Processed: %+v\n", poppedQueue)
 	}
 }
