@@ -1,9 +1,11 @@
 package main
+
 import (
-	"fmt"
+	"encoding/binary"
 	"encoding/json"
-	"sync"
+	"fmt"
 	"net"
+	"sync"
 )
 
 type createRules struct {
@@ -13,14 +15,16 @@ type createRules struct {
     Expression  float32
 }
 
+
 type createQueue struct {
-	t int 
-	l string 
-	u string 
-	v int
+	T int 		`json:"t"`
+	L string 	`json:"l"`
+	U string    `json:"u"`
+	V int		`json:"v"`
 }
 
 func main (){
+
 
 	config := createRules {
 		Name:		 "PSI to Bars",
@@ -64,26 +68,48 @@ func main (){
 func handleSocket(queue chan createQueue, conn net.Conn, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer conn.Close()
+	hasHandshaked := false
 	fmt.Println("Accepted connection from", conn.RemoteAddr())
 
 	for {
-		var data createQueue
-		decoder := json.NewDecoder(conn)
-		if err := decoder.Decode(&data); err != nil {
-			fmt.Println("Error decoding JSON:", err)
+		integerBuf := make([]byte, 4)
+		_, err := conn.Read(integerBuf)
+		if err != nil {
+			return
+		}
+		length := binary.BigEndian.Uint32(integerBuf)
+
+		dataBuf := make([]byte, length)
+		_, err = conn.Read(dataBuf)
+		if err != nil {
 			return
 		}
 
-	queue <- data // send entire struct to channel
+		if string(dataBuf) == "START" {
+			integerBuf = make([]byte, 4)
+			integerBuf = binary.BigEndian.AppendUint32(integerBuf, length)
+			dataBuf = []byte("OK")
+			conn.Write(integerBuf)
+			conn.Write(dataBuf)
+			hasHandshaked = true
+
+		} else if (hasHandshaked){
+			var sending createQueue
+			err  = json.Unmarshal(dataBuf, &sending)
+			if err != nil {
+				return
+			}
+			queue <- sending
+		}
 	}
 	
 }
 
-func processorLoop(queue chan currentMember, wg *sync.WaitGroup, createRules config){
+func processorLoop(queue chan createQueue, wg *sync.WaitGroup, config createRules){
 	defer wg.Done() 
 
 	for {
-		popedQueue := <-createQueue // remove element from channel
+		poppedQueue := <-queue // remove element from channel
 		rule := config.Expression//what value do i need to multiply by
 
         poppedQueue.V := int(float32(poppedQueue.V) * rule)
