@@ -27,7 +27,7 @@ func main (){
 
 	config := createRules {
 		Name:		 "PSI to Bars",
-		Label:		 "sensor:IPT",
+		Label:		 "sensor:MPT",
 		Units:		 "PSI",
 		Expression:	 0.0689476,
 	}	
@@ -44,6 +44,7 @@ func main (){
     defer listener.Close()
 
     fmt.Println("Server is listening on :9000")
+	go processorLoop(queue, config)
 
     for {
         conn, err := listener.Accept()
@@ -52,30 +53,33 @@ func main (){
             continue
         }
 
-		go handleSocket(queue, conn) 
+		go handleSocket(queue, conn) 		
     }
 
-	go processorLoop(queue, config)
 
 
 }
 
 func handleSocket(queue chan createQueue, conn net.Conn) {
-	defer conn.Close()
 	hasHandshaked := false
 	fmt.Println("Accepted connection from", conn.RemoteAddr())
 
 	for {
 		integerBuf := make([]byte, 4)
 		_, err := conn.Read(integerBuf)
-		if err != nil {
+
+		if err != nil{
+			//fmt.Printf("Error happened: %v \n", err)
 			return
 		}
+
 		length := binary.BigEndian.Uint32(integerBuf)
+		fmt.Print("Continues through loop \n")
 
 		dataBuf := make([]byte, length)
 		_, err = conn.Read(dataBuf)
 		if err != nil {
+			fmt.Printf("Equals Nill PT2: %v\n", err)
 			return
 		}
 
@@ -85,21 +89,51 @@ func handleSocket(queue chan createQueue, conn net.Conn) {
 			dataBuf = []byte("OK")
 			conn.Write(integerBuf)
 			conn.Write(dataBuf)
+		}
+		if string(dataBuf) == "OK" {
+			// Handle the "OK" response
+			fmt.Println("Received OK response.")
 			hasHandshaked = true
-
-		} else if (hasHandshaked){
-			var sending createQueue
-			err  = json.Unmarshal(dataBuf, &sending)
-			if err != nil {
-				return
-			}
+			fmt.Printf("Has the handshake happened: %v \n", hasHandshaked)
+		}  
+		if hasHandshaked {
+			var sending createQueue			
+			err := json.Unmarshal(dataBuf, &sending)
+			if err == nil {
+				fmt.Printf("Error unmarshalling JSON data: %v\n", err)
+			} 
+			fmt.Printf("Data is being added to queue: %+v\n", sending)
 			queue <- sending
 		}
+
+		
+		// 	hasHandshaked = true
+		// 	fmt.Printf("Has the handshake happened: %v \n", hasHandshaked)
+		
+		// if hasHandshaked {
+		// 	var sending createQueue
+		// 	fmt.Print("Starting queue upending \n")
+
+		// 	if string(dataBuf) == "OK" {
+		// 		err = json.Unmarshal(dataBuf, &sending)
+		// 		if err != nil {
+		// 			if err.Error() != "invalid character 'O' looking for beginning of value" {
+		// 				// Handle the specific error case where 'O' is not valid JSON data.
+		// 				fmt.Println("Had another issue")
+		// 				return
+		// 			} 
+		// 		}
+		// 		fmt.Printf("data is being added to queue:  %v\n", sending.V)
+		// 		queue <- sending
+		// 	}
+		// }
+
 	}
 	
 }
 
 func processorLoop(queue chan createQueue, config createRules){
+	fmt.Print("Starting processing \n")
 
 	for {
 		poppedQueue := <-queue // remove element from channel
