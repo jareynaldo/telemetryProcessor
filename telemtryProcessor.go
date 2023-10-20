@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sync"
 )
 
 type createRules struct {
@@ -34,7 +33,6 @@ func main (){
 	}	
 
 	queue := make(chan createQueue)  //make queue
-	var wg sync.WaitGroup // make waitgroup so that finishes concurently
 
 
 	// create Socket 
@@ -54,19 +52,15 @@ func main (){
             continue
         }
 
-        wg.Add(1)
-		go handleSocket(queue, conn, &wg) 
+		go handleSocket(queue, conn) 
     }
 
-	wg.Add(1)
-	go processorLoop(queue, &wg, config)
+	go processorLoop(queue, config)
 
-	wg.Wait()
 
 }
 
-func handleSocket(queue chan createQueue, conn net.Conn, wg *sync.WaitGroup) {
-	defer wg.Done()
+func handleSocket(queue chan createQueue, conn net.Conn) {
 	defer conn.Close()
 	hasHandshaked := false
 	fmt.Println("Accepted connection from", conn.RemoteAddr())
@@ -105,14 +99,13 @@ func handleSocket(queue chan createQueue, conn net.Conn, wg *sync.WaitGroup) {
 	
 }
 
-func processorLoop(queue chan createQueue, wg *sync.WaitGroup, config createRules){
-	defer wg.Done() 
+func processorLoop(queue chan createQueue, config createRules){
 
 	for {
 		poppedQueue := <-queue // remove element from channel
 		rule := config.Expression //what value do i need to multiply by
 
-        poppedQueue.V := int(float32(poppedQueue.V) * rule)
+        poppedQueue.V = int(float32(poppedQueue.V) * rule)
 
         fmt.Printf("Processed: %+v\n", poppedQueue)
 	}
